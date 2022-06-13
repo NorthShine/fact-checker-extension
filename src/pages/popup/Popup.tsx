@@ -1,48 +1,58 @@
 import { useEffect, useState } from 'react';
-import logo from '@assets/img/logo.svg';
 import '@pages/popup/Popup.css';
 
-const Popup = () => {
-  const [url, setUrl] = useState<string>('');
-  const getCurrentTabUrl = () => new Promise<string>((resolve, reject) => {
-    chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
-      const [activeTab] = tabs;
-      const { url: tabURL } = activeTab;
-      if (typeof tabURL === 'string') {
-        resolve(tabURL);
-      }
-      reject(new Error('Unable to get the current tab'));
-    });
+export interface News {
+  is_trusted_url: boolean;
+  is_real_author: boolean;
+  is_real_article: boolean;
+  url?: string | null;
+  author?: string;
+  title?: string | null;
+  text?: string;
+  is_article?: boolean;
+  truth_percentage: number;
+  uniqueness_hits: number;
+  found_articles: string[];
+}
+
+const getCurrentTabUrl = () => new Promise<string>((resolve, reject) => {
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+    const [activeTab] = tabs;
+    const { url: tabURL } = activeTab;
+    if (typeof tabURL === 'string') {
+      resolve(tabURL);
+    }
+    reject(new Error('Unable to get the current tab'));
   });
+});
+
+const Popup = () => {
+  const [result, setResult] = useState<News>();
 
   useEffect(() => {
-    getCurrentTabUrl().then(setUrl).catch(console.error);
+    getCurrentTabUrl()
+      .then((url) => {
+        fetch(`${import.meta.env.VITE_API_URL}/api/parser/url`, {
+          method: 'POST',
+          mode: 'cors',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ url })
+        })
+          .then((res) => res.json())
+          .then(setResult);
+      })
+      .catch(console.error);
   }, []);
 
   return (
     <div className="App">
       <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
         <p>
-          Edit
-          {' '}
-          <code>src/pages/popup/Popup.jsx</code>
-          {' '}
-          and save to reload.
+          {result && `Статья на ${result.truth_percentage}% не фейк`}
+          {!result && 'Loading...'}
         </p>
-        <p>
-          Current tab url:
-          {' '}
-          {url}
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React!
-        </a>
       </header>
     </div>
   );
